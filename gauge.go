@@ -30,8 +30,11 @@ type Gauge struct {
 	// reset count
 	resetCount int64
 	// reset cum
-	resetSum    int64
+	resetSum int64
+	// reset on fail
 	resetOnFail bool
+	// period of gauge
+	period time.Duration
 }
 
 type Option func(m *Gauge)
@@ -70,6 +73,14 @@ func ResetOnFailOption() Option {
 	}
 }
 
+// Set period of guage
+// g := New(PeriodOption(time.Minute))
+func PeriodOption(period time.Duration) Option {
+	return func(g *Gauge) {
+		g.period = period
+	}
+}
+
 // Resets the values of gauge
 func (g *Gauge) Reset() {
 	atomic.StoreInt64(&g.createdAt, 0)
@@ -77,18 +88,42 @@ func (g *Gauge) Reset() {
 	atomic.StoreInt64(&g.count, 0)
 }
 
-// Adds value to gauge
-func (g *Gauge) Add(value int64) (sum, count int64) {
+func (g *Gauge) before() {
 	// 如果并行触发，只导致重复写入createAt
 	// 并不会导致程序异常
+	createdAt := atomic.LoadInt64(&g.createdAt)
+	// 如果设置了周期参数，而已过一次周期，则重置
+	if g.period != 0 && time.Now().UnixNano()-createdAt > int64(g.period) {
+		g.Reset()
+	}
 	if atomic.LoadInt64(&g.createdAt) == 0 {
 		atomic.StoreInt64(&g.createdAt, time.Now().UnixNano())
 	}
+}
+
+// Adds value to gauge
+func (g *Gauge) Add(value int64) (sum, count int64) {
+	g.before()
 	sum = atomic.AddInt64(&g.sum, value)
 	count = atomic.AddInt64(&g.count, 1)
 	if g.resetCount != 0 && count >= g.resetCount {
 		g.Reset()
 	} else if g.resetSum != 0 && sum > g.resetSum {
+		g.Reset()
+	}
+	return
+}
+
+// Set max value to the gauge
+func (g *Gauge) SetMax(value int64) (max, count int64) {
+	g.before()
+	max = atomic.LoadInt64(&g.sum)
+	if value > max {
+		atomic.StoreInt64(&g.sum, value)
+		max = value
+	}
+	count = atomic.AddInt64(&g.count, 1)
+	if g.resetCount != 0 && count >= g.resetCount {
 		g.Reset()
 	}
 	return

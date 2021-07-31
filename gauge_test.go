@@ -2,6 +2,7 @@ package gauge
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -56,4 +57,27 @@ func TestGaugeAddAndCheck(t *testing.T) {
 	sum, err := g.AddCheckSum(2, 10)
 	assert.Equal(int64(12), sum)
 	assert.Equal("sum is 12 gt 10", err.Error())
+}
+
+func TestGaugeSetMax(t *testing.T) {
+	assert := assert.New(t)
+
+	g := New(PeriodOption(time.Millisecond))
+	max, count := g.SetMax(10)
+	assert.Equal(int64(10), max)
+	assert.Equal(int64(1), count)
+
+	max, count = g.SetMax(1)
+	assert.Equal(int64(10), max)
+	assert.Equal(int64(2), count)
+
+	max, count = g.SetMax(11)
+	assert.Equal(int64(11), max)
+	assert.Equal(int64(3), count)
+
+	// 别一个区间，重置
+	time.Sleep(2 * time.Millisecond)
+	max, count = g.SetMax(10)
+	assert.Equal(int64(10), max)
+	assert.Equal(int64(1), count)
 }
