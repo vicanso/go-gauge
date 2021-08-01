@@ -26,17 +26,21 @@ func TestGauge(t *testing.T) {
 	sum, count := g.Add(10)
 	assert.Equal(int64(13), sum)
 	assert.Equal(int64(3), count)
-	// 重置
-	assert.Equal(int64(0), g.Sum())
-	assert.Equal(int64(0), g.Count())
+
+	// sum超过后重置再处理
+	sum, count = g.Add(2)
+	assert.Equal(int64(2), sum)
+	assert.Equal(int64(1), count)
+	g.Reset()
 
 	for i := 0; i < 5; i++ {
 		_, count := g.Add(1)
 		assert.Equal(int64(i+1), count)
 	}
-	// 重置
-	assert.Equal(int64(0), g.Sum())
-	assert.Equal(int64(0), g.Count())
+	// 次数超过后，重置处理
+	_, _ = g.Add(2)
+	assert.Equal(int64(2), g.Sum())
+	assert.Equal(int64(1), g.Count())
 }
 
 func TestGaugeAddAndCheck(t *testing.T) {

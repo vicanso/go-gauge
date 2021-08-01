@@ -99,6 +99,11 @@ func (g *Gauge) before() {
 	if atomic.LoadInt64(&g.createdAt) == 0 {
 		atomic.StoreInt64(&g.createdAt, time.Now().UnixNano())
 	}
+	if g.resetCount != 0 && atomic.LoadInt64(&g.count) >= g.resetCount {
+		g.Reset()
+	} else if g.resetSum != 0 && atomic.LoadInt64(&g.sum) > g.resetSum {
+		g.Reset()
+	}
 }
 
 // Adds value to gauge
@@ -106,15 +111,10 @@ func (g *Gauge) Add(value int64) (sum, count int64) {
 	g.before()
 	sum = atomic.AddInt64(&g.sum, value)
 	count = atomic.AddInt64(&g.count, 1)
-	if g.resetCount != 0 && count >= g.resetCount {
-		g.Reset()
-	} else if g.resetSum != 0 && sum > g.resetSum {
-		g.Reset()
-	}
 	return
 }
 
-// Set max value to the gauge
+// Sets max value to the gauge
 func (g *Gauge) SetMax(value int64) (max, count int64) {
 	g.before()
 	max = atomic.LoadInt64(&g.sum)
@@ -123,9 +123,6 @@ func (g *Gauge) SetMax(value int64) (max, count int64) {
 		max = value
 	}
 	count = atomic.AddInt64(&g.count, 1)
-	if g.resetCount != 0 && count >= g.resetCount {
-		g.Reset()
-	}
 	return
 }
 
